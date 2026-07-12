@@ -164,7 +164,7 @@ export default function TodayPage({ onAdd }) {
 
         <div className="hero-text">
           <p className="hero-kicker">Nhật ký sức khỏe</p>
-          <h1>Hôm nay mẹ thấy thế nào ạ?</h1>
+          <h1>Hôm nay mẹ thấy thế nào?</h1>
           <p>
             Ghi lại từng ngày một chút để cả nhà dễ theo dõi và chăm sóc mẹ tốt hơn! Yêu mẹ, yêu gia đình, yêu sức khỏe!
           </p>

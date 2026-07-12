@@ -1,44 +1,89 @@
-const STORAGE_KEY = "nhatKySucKhoe.records"
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  setDoc,
+  writeBatch
+} from "firebase/firestore"
+import { db } from "./firebase"
+import { getFamilyCode } from "./access"
 
-export function getRecords() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
+function getRecordsCollection() {
+  const familyCode = getFamilyCode()
+
+  if (!familyCode) {
+    throw new Error("Chưa có mã gia đình.")
   }
+
+  return collection(db, "families", familyCode, "records")
 }
 
-export function saveRecord(record) {
-  const records = getRecords()
+function getRecordDoc(id) {
+  const familyCode = getFamilyCode()
 
-  const filtered = records.filter(
-    (item) => !(item.date === record.date && item.session === record.session)
-  )
+  if (!familyCode) {
+    throw new Error("Chưa có mã gia đình.")
+  }
 
-  const updated = [record, ...filtered].sort((a, b) => {
+  return doc(db, "families", familyCode, "records", id)
+}
+
+function sortRecords(records) {
+  return [...records].sort((a, b) => {
     const aDate = `${a.date}T${a.time}`
     const bDate = `${b.date}T${b.time}`
     return bDate.localeCompare(aDate)
   })
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-  return updated
 }
 
-export function deleteRecord(id) {
-  const records = getRecords()
-  const updated = records.filter((item) => item.id !== id)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-  return updated
+export async function getRecords() {
+  try {
+    const snapshot = await getDocs(getRecordsCollection())
+
+    const records = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data()
+    }))
+
+    return sortRecords(records)
+  } catch (error) {
+    console.error(error)
+    return []
+  }
 }
 
-export function clearRecords() {
-  localStorage.removeItem(STORAGE_KEY)
+export async function saveRecord(record) {
+  const id = `${record.date}-${record.session}`
+  const recordToSave = {
+    ...record,
+    id
+  }
+
+  await setDoc(getRecordDoc(id), recordToSave)
+
+  return getRecords()
 }
 
-export function exportBackupJson() {
-  const records = getRecords()
+export async function deleteRecord(id) {
+  await deleteDoc(getRecordDoc(id))
+  return getRecords()
+}
+
+export async function clearRecords() {
+  const records = await getRecords()
+  const batch = writeBatch(db)
+
+  records.forEach((record) => {
+    batch.delete(getRecordDoc(record.id))
+  })
+
+  await batch.commit()
+}
+
+export async function exportBackupJson() {
+  const records = await getRecords()
+
   const backup = {
     app: "nhat-ky-suc-khoe",
     version: 1,
@@ -65,7 +110,7 @@ export function importBackupJson(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
 
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const data = JSON.parse(reader.result)
         const records = Array.isArray(data) ? data : data.records
@@ -75,10 +120,24 @@ export function importBackupJson(file) {
           return
         }
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
-        resolve(records)
-      } catch {
-        reject(new Error("Không đọc được file backup."))
+        const batch = writeBatch(db)
+
+        records.forEach((record) => {
+          const id = record.id ?? `${record.date}-${record.session}`
+          const recordToSave = {
+            ...record,
+            id
+          }
+
+          batch.set(getRecordDoc(id), recordToSave)
+        })
+
+        await batch.commit()
+
+        const updatedRecords = await getRecords()
+        resolve(updatedRecords)
+      } catch (error) {
+        reject(error)
       }
     }
 

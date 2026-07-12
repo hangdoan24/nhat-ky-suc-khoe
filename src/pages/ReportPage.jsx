@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   getRecords,
   exportBackupJson,
@@ -45,9 +45,20 @@ function formatBloodPressure(item) {
 }
 
 export default function ReportPage() {
-  const [records, setRecords] = useState(() => sortRecords(getRecords()))
+  const [records, setRecords] = useState([])
   const [message, setMessage] = useState("")
+  const [loading, setLoading] = useState(true)
   const fileInputRef = useRef(null)
+
+  async function loadRecords() {
+    const result = await getRecords()
+    setRecords(sortRecords(result))
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadRecords()
+  }, [])
 
   function handlePrint() {
     window.print()
@@ -65,7 +76,7 @@ export default function ReportPage() {
     try {
       const importedRecords = await importBackupJson(file)
       setRecords(sortRecords(importedRecords))
-      setMessage("Đã nhập lại dữ liệu backup thành công.")
+      setMessage("Đã nhập dữ liệu backup lên nhật ký chung thành công.")
       event.target.value = ""
     } catch (error) {
       setMessage(error.message)
@@ -77,9 +88,13 @@ export default function ReportPage() {
       <h1 className="no-print">Báo cáo</h1>
 
       <div className="card no-print">
-        <p>Có thể xuất dữ liệu để lưu lại hoặc mang theo khi đi khám.</p>
+        <p>
+          Dữ liệu đang được lưu trong nhật ký chung của gia đình. Có thể xuất báo cáo
+          hoặc backup khi cần.
+        </p>
 
         {message && <p>{message}</p>}
+        {loading && <p>Đang tải dữ liệu...</p>}
 
         <button
           className="primary-button"
@@ -125,7 +140,7 @@ export default function ReportPage() {
           <p>Ngày xuất báo cáo: {new Date().toLocaleDateString("vi-VN")}</p>
         </div>
 
-        {records.length === 0 && <p>Chưa có dữ liệu.</p>}
+        {!loading && records.length === 0 && <p>Chưa có dữ liệu.</p>}
 
         {records.length > 0 && (
           <table className="report-table">

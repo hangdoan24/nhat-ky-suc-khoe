@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { getRecords, saveRecord, deleteRecord } from "../utils/storage"
 import MeasurementCard from "../components/MeasurementCard"
 import MeasurementForm from "../components/MeasurementForm"
@@ -6,13 +6,20 @@ import StatusBox from "../components/StatusBox"
 import { evaluateRecord } from "../utils/evaluation"
 
 export default function HistoryPage() {
-  const [items, setItems] = useState(getRecords())
+  const [items, setItems] = useState([])
   const [editingItem, setEditingItem] = useState(null)
   const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  function refreshItems() {
-    setItems(getRecords())
+  async function refreshItems() {
+    const records = await getRecords()
+    setItems(records)
+    setLoading(false)
   }
+
+  useEffect(() => {
+    refreshItems()
+  }, [])
 
   function handleEdit(item) {
     setEditingItem(item)
@@ -20,9 +27,9 @@ export default function HistoryPage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  function handleSaveEdit(updatedRecord) {
-    saveRecord(updatedRecord)
-    refreshItems()
+  async function handleSaveEdit(updatedRecord) {
+    await saveRecord(updatedRecord)
+    await refreshItems()
     setResult(evaluateRecord(updatedRecord))
     setEditingItem(null)
   }
@@ -32,11 +39,11 @@ export default function HistoryPage() {
     setResult(null)
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     const ok = window.confirm("Bạn có muốn xóa lần ghi này không?")
     if (!ok) return
 
-    const updated = deleteRecord(id)
+    const updated = await deleteRecord(id)
     setItems(updated)
 
     if (editingItem?.id === id) {
@@ -77,16 +84,19 @@ export default function HistoryPage() {
 
       {result && <StatusBox result={result} />}
 
-      {items.length === 0 && <p>Chưa có dữ liệu.</p>}
+      {loading && <p>Đang tải dữ liệu...</p>}
 
-      {items.map((item) => (
-        <MeasurementCard
-          key={item.id}
-          item={item}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
-      ))}
+      {!loading && items.length === 0 && <p>Chưa có dữ liệu.</p>}
+
+      {!loading &&
+        items.map((item) => (
+          <MeasurementCard
+            key={item.id}
+            item={item}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        ))}
     </section>
   )
 }

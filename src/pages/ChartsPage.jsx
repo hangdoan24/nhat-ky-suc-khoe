@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { getRecords } from "../utils/storage"
 import VitalChart from "../components/VitalChart"
 
@@ -82,7 +83,19 @@ function morningEveningSeries(morningKey, eveningKey) {
 }
 
 export default function ChartsPage() {
-  const records = getRecords()
+  const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadRecords() {
+      const result = await getRecords()
+      setRecords(result)
+      setLoading(false)
+    }
+
+    loadRecords()
+  }, [])
+
   const data = buildDailyChartData(records)
 
   const hasWeight = data.some(
@@ -93,9 +106,11 @@ export default function ChartsPage() {
     <section>
       <h1>Biểu đồ theo dõi</h1>
 
-      {data.length === 0 && <p>Chưa có dữ liệu để vẽ biểu đồ.</p>}
+      {loading && <p>Đang tải dữ liệu...</p>}
 
-      {data.length > 0 && (
+      {!loading && data.length === 0 && <p>Chưa có dữ liệu để vẽ biểu đồ.</p>}
+
+      {!loading && data.length > 0 && (
         <>
           {hasWeight && (
             <VitalChart

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { getRecords } from "../utils/storage"
 import { evaluateRecord } from "../utils/evaluation"
 import {
@@ -16,18 +17,6 @@ function getTodayString() {
   const day = String(now.getDate()).padStart(2, "0")
 
   return `${year}-${month}-${day}`
-}
-
-function getTodayRecords() {
-  const today = getTodayString()
-
-  return getRecords()
-    .filter((item) => item.date === today)
-    .sort((a, b) => {
-      if (a.session === "morning" && b.session === "evening") return -1
-      if (a.session === "evening" && b.session === "morning") return 1
-      return a.time.localeCompare(b.time)
-    })
 }
 
 function getSessionRecord(records, session) {
@@ -130,7 +119,28 @@ function TodaySessionSummary({ item, session }) {
 }
 
 export default function TodayPage({ onAdd }) {
-  const records = getTodayRecords()
+  const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadRecords() {
+      const allRecords = await getRecords()
+      const today = getTodayString()
+      const todayRecords = allRecords
+        .filter((item) => item.date === today)
+        .sort((a, b) => {
+          if (a.session === "morning" && b.session === "evening") return -1
+          if (a.session === "evening" && b.session === "morning") return 1
+          return a.time.localeCompare(b.time)
+        })
+
+      setRecords(todayRecords)
+      setLoading(false)
+    }
+
+    loadRecords()
+  }, [])
+
   const morning = getSessionRecord(records, "morning")
   const evening = getSessionRecord(records, "evening")
 
@@ -154,9 +164,9 @@ export default function TodayPage({ onAdd }) {
 
         <div className="hero-text">
           <p className="hero-kicker">Nhật ký sức khỏe</p>
-          <h1>Hôm nay mẹ Hồng thấy thế nào ạ?</h1>
+          <h1>Hôm nay mẹ thế nào?</h1>
           <p>
-            Ghi lại từng ngày một chút để cả nhà dễ theo dõi và chăm sóc mẹ tốt hơn nhé.
+            Ghi lại từng ngày một chút để cả nhà dễ theo dõi và chăm sóc mẹ tốt hơn.
           </p>
         </div>
       </div>
@@ -172,8 +182,14 @@ export default function TodayPage({ onAdd }) {
         </div>
       </div>
 
-      <TodaySessionSummary item={morning} session="morning" />
-      <TodaySessionSummary item={evening} session="evening" />
+      {loading && <p>Đang tải dữ liệu...</p>}
+
+      {!loading && (
+        <>
+          <TodaySessionSummary item={morning} session="morning" />
+          <TodaySessionSummary item={evening} session="evening" />
+        </>
+      )}
     </section>
   )
 }
